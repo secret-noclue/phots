@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ProStudio | Mirrored & Scrollable</title>
+    <title>ProStudio | Filter HUD</title>
     <style>
         :root {
             --primary: #6366f1;
@@ -12,7 +12,7 @@
         }
 
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
             background: var(--bg);
             color: white;
             margin: 0;
@@ -27,30 +27,53 @@
             width: 100%;
             max-width: 500px;
             background: var(--glass);
-            backdrop-filter: blur(10px);
-            border-radius: 24px;
+            backdrop-filter: blur(15px);
+            border-radius: 28px;
             padding: 1.5rem;
             border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
         }
 
-        /* Scrollable Wrapper for Long Strips */
+        /* Viewport & HUD */
         .viewport-container {
             position: relative;
             width: 100%;
-            max-height: 70vh; /* Limits height on mobile */
-            overflow-y: auto; /* Makes strip scrollable */
-            border-radius: 16px;
+            max-height: 65vh;
+            overflow-y: auto;
+            border-radius: 20px;
             background: #000;
-            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
-            scrollbar-width: thin;
-            scrollbar-color: var(--primary) transparent;
+            border: 2px solid #334155;
         }
 
-        /* Mirroring logic */
         video, #canvas {
             width: 100%;
             display: block;
-            transform: scaleX(-1); /* Visual Mirroring */
+            transform: scaleX(-1); /* Mirror Preview */
+        }
+
+        /* Filter Label HUD (Heads-Up Display) */
+        #filter-hud {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+            padding: 8px 16px;
+            border-radius: 30px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            border: 1px solid rgba(255,255,255,0.2);
+            z-index: 20;
+            opacity: 0;
+            transition: opacity 0.3s, transform 0.3s;
+        }
+
+        #filter-hud.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(5px);
         }
 
         #timer {
@@ -58,36 +81,38 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 6rem;
-            font-weight: 800;
-            z-index: 10;
+            font-size: 7rem;
+            font-weight: 900;
+            z-index: 30;
             pointer-events: none;
+            text-shadow: 0 0 20px rgba(0,0,0,0.5);
         }
 
-        .controls {
-            margin-top: 1.5rem;
-            display: grid;
-            gap: 1rem;
+        /* Control Panels */
+        .controls { margin-top: 1.5rem; display: grid; gap: 1rem; }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            text-align: left;
         }
 
-        .btn-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
+        label { font-size: 0.7rem; color: #94a3b8; font-weight: 700; padding-left: 5px; }
 
         select, button {
-            padding: 12px;
-            border-radius: 12px;
+            padding: 14px;
+            border-radius: 14px;
             border: none;
-            background: #334155;
+            background: #1e293b;
             color: white;
             font-weight: 600;
             cursor: pointer;
+            transition: 0.2s;
         }
 
-        .btn-capture { background: var(--primary); grid-column: span 2; font-size: 1.1rem; }
-        .btn-share { background: #10b981; }
+        .btn-capture { background: var(--primary); font-size: 1.1rem; margin-top: 5px; }
+        .btn-capture:hover { background: #4f46e5; }
         
         .hidden { display: none !important; }
     </style>
@@ -95,40 +120,49 @@
 <body>
 
     <div class="container">
-        <h2 style="text-align: center; margin-top: 0;">🎞️ Strip Studio</h2>
+        <header style="margin-bottom: 1rem; text-align: center;">
+            <h2 style="margin: 0; background: linear-gradient(90deg, #818cf8, #f472b6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PRO STUDIO</h2>
+        </header>
 
         <div class="viewport-container">
+            <div id="filter-hud">Normal</div>
             <div id="timer" class="hidden">3</div>
+            
             <video id="video" autoplay playsinline></video>
             <canvas id="canvas" class="hidden"></canvas>
         </div>
 
         <div id="ui-setup" class="controls">
-            <div class="btn-grid">
-                <select id="mode">
-                    <option value="1">Single Photo</option>
-                    <option value="3">3-Photo Strip</option>
-                    <option value="4">4-Photo Grid</option>
-                </select>
-                <select id="filter">
-                    <option value="none">Normal</option>
-                    <option value="grayscale(100%)">Noir (B&W)</option>
-                    <option value="sepia(100%)">Retro Sepia</option>
-                    <option value="saturate(200%) brightness(1.1)">Vibrant</option>
-                    <option value="hue-rotate(90deg)">Acid Trip</option>
-                    <option value="contrast(150%) brightness(0.8)">Dramatic</option>
-                    <option value="blur(2px) saturate(1.5)">Soft Dream</option>
-                    <option value="invert(1)">Negative</option>
-                </select>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div class="control-group">
+                    <label>LAYOUT</label>
+                    <select id="mode">
+                        <option value="1">Single</option>
+                        <option value="3">3-Strip</option>
+                        <option value="4">4-Grid</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>FILTER</label>
+                    <select id="filter">
+                        <option value="none">Natural</option>
+                        <option value="grayscale(100%)">Noir (B&W)</option>
+                        <option value="sepia(100%)">Vintage</option>
+                        <option value="saturate(2.5)">Vivid</option>
+                        <option value="contrast(1.5) brightness(0.9)">Dramatic</option>
+                        <option value="hue-rotate(180deg)">Infrared</option>
+                        <option value="invert(1)">X-Ray</option>
+                    </select>
+                </div>
             </div>
-            <button id="btn-snap" class="btn-capture">Start Capture</button>
+            <button id="btn-snap" class="btn-capture">📸 Take Photo</button>
         </div>
 
         <div id="ui-post" class="controls hidden">
-            <button id="btn-share" class="btn-share">📤 Share to Email / Photos</button>
-            <div class="btn-grid">
-                <button onclick="location.reload()">🔄 Retake</button>
-                <button id="btn-download" style="background:#6366f1">💾 Download</button>
+            <button id="btn-share" style="background: #10b981;">📤 Send to Email / Photos</button>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <button onclick="location.reload()" style="background:#475569">🔄 Retake</button>
+                <button id="btn-download" style="background:var(--primary)">💾 Save</button>
             </div>
         </div>
     </div>
@@ -138,23 +172,43 @@
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
         const timerEl = document.getElementById('timer');
+        const hudEl = document.getElementById('filter-hud');
+        const filterSelect = document.getElementById('filter');
         const snapBtn = document.getElementById('btn-snap');
         
-        let stream;
         let images = [];
 
         async function init() {
-            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-            video.srcObject = stream;
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } } 
+                });
+                video.srcObject = stream;
+            } catch (e) {
+                alert("Please enable camera access.");
+            }
         }
+
+        // --- HUD Feedback Logic ---
+        filterSelect.addEventListener('change', (e) => {
+            const filterName = e.target.options[e.target.selectedIndex].text;
+            video.style.filter = e.target.value;
+            
+            // Show HUD
+            hudEl.innerText = filterName;
+            hudEl.classList.add('show');
+            
+            // Hide after 1.5 seconds
+            setTimeout(() => hudEl.classList.remove('show'), 1500);
+        });
 
         snapBtn.onclick = async () => {
             const count = parseInt(document.getElementById('mode').value);
             images = [];
             snapBtn.disabled = true;
+            hudEl.classList.remove('show'); // Hide HUD during capture
 
             for (let i = 0; i < count; i++) {
-                // Timer
                 timerEl.classList.remove('hidden');
                 for (let t = 3; t > 0; t--) {
                     timerEl.innerText = t;
@@ -162,17 +216,16 @@
                 }
                 timerEl.classList.add('hidden');
 
-                // Capture to temporary invisible canvas
                 const temp = document.createElement('canvas');
                 temp.width = video.videoWidth;
                 temp.height = video.videoHeight;
                 const tCtx = temp.getContext('2d');
                 
-                // MIRROR THE ACTUAL DATA
+                // Physical Mirror for the saved data
                 tCtx.translate(temp.width, 0);
                 tCtx.scale(-1, 1);
                 
-                tCtx.filter = document.getElementById('filter').value;
+                tCtx.filter = filterSelect.value;
                 tCtx.drawImage(video, 0, 0, temp.width, temp.height);
                 images.push(temp.toDataURL('image/png'));
                 
@@ -182,14 +235,13 @@
         };
 
         function renderStrip() {
-            const w = 600; // High res base width
-            const h = 800; // Base height per photo
-            const pad = 40;
+            const w = 800; 
+            const h = 1000; 
+            const pad = 50;
             
             canvas.width = w + (pad * 2);
-            canvas.height = (h * images.length) + (pad * (images.length + 1)) + 80;
+            canvas.height = (h * images.length) + (pad * (images.length + 1)) + 100;
 
-            // Background
             ctx.fillStyle = "white";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -204,13 +256,11 @@
         }
 
         function finalize() {
-            // Remove the CSS mirroring from canvas so the already-mirrored data displays correctly
-            canvas.style.transform = "none";
-            
-            ctx.fillStyle = "#aaa";
-            ctx.font = "bold 24px Arial";
+            canvas.style.transform = "none"; // Disable CSS mirror for the final strip
+            ctx.fillStyle = "#cbd5e1";
+            ctx.font = "bold 30px Inter";
             ctx.textAlign = "center";
-            ctx.fillText("PRO STUDIO STRIP", canvas.width/2, canvas.height - 35);
+            ctx.fillText("PRO STUDIO SESSION", canvas.width/2, canvas.height - 40);
 
             video.classList.add('hidden');
             canvas.classList.remove('hidden');
@@ -218,21 +268,19 @@
             document.getElementById('ui-post').classList.remove('hidden');
         }
 
-        // Sharing logic
         document.getElementById('btn-share').onclick = async () => {
             const blob = await (await fetch(canvas.toDataURL())).blob();
-            const file = new File([blob], 'strip.png', { type: 'image/png' });
-
+            const file = new File([blob], 'photostrip.png', { type: 'image/png' });
             if (navigator.share) {
-                navigator.share({ files: [file], title: 'My Photo Strip' });
+                navigator.share({ files: [file], title: 'My Pro Studio Strip' });
             } else {
-                window.location.href = `mailto:?subject=My Photo Strip&body=See attached!`;
+                window.location.href = `mailto:?subject=My Photo Strip&body=Check this out!`;
             }
         };
 
         document.getElementById('btn-download').onclick = () => {
             const link = document.createElement('a');
-            link.download = 'photostrip.png';
+            link.download = 'pro-studio-strip.png';
             link.href = canvas.toDataURL();
             link.click();
         };

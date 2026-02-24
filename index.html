@@ -3,133 +3,191 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ProStudio | Mirrored & Scrollable</title>
+    <title>ProStudio | Web Photobooth</title>
     <style>
         :root {
             --primary: #6366f1;
-            --bg: #0f172a;
-            --glass: rgba(255, 255, 255, 0.05);
+            --secondary: #ec4899;
+            --dark: #1e293b;
+            --light: #f8fafc;
         }
 
         body {
-            font-family: 'Inter', sans-serif;
-            background: var(--bg);
-            color: white;
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: radial-gradient(circle at top left, #1e293b, #0f172a);
+            color: var(--light);
             margin: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
-            padding: 20px;
         }
 
-        .container {
-            width: 100%;
-            max-width: 500px;
-            background: var(--glass);
+        /* Container & Layout */
+        .app-container {
+            width: 90%;
+            max-width: 1000px;
+            margin: 20px auto;
+            background: rgba(255, 255, 255, 0.05);
             backdrop-filter: blur(10px);
             border-radius: 24px;
-            padding: 1.5rem;
-            border: 1px solid rgba(255,255,255,0.1);
+            padding: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
 
-        /* Scrollable Wrapper for Long Strips */
-        .viewport-container {
+        .viewer-pane {
             position: relative;
             width: 100%;
-            max-height: 70vh; /* Limits height on mobile */
-            overflow-y: auto; /* Makes strip scrollable */
-            border-radius: 16px;
+            max-width: 480px;
+            margin: 0 auto;
+            aspect-ratio: 3/4;
             background: #000;
-            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
-            scrollbar-width: thin;
-            scrollbar-color: var(--primary) transparent;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 4px solid #334155;
         }
 
-        /* Mirroring logic */
-        video, #canvas {
+        video, canvas {
             width: 100%;
-            display: block;
-            transform: scaleX(-1); /* Visual Mirroring */
+            height: 100%;
+            object-fit: cover;
         }
 
+        /* UI Overlays */
         #timer {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 6rem;
+            font-size: 8rem;
             font-weight: 800;
+            color: white;
+            text-shadow: 0 0 20px rgba(0,0,0,0.5);
+            display: none;
             z-index: 10;
+        }
+
+        #flash {
+            position: absolute;
+            inset: 0;
+            background: white;
+            opacity: 0;
             pointer-events: none;
+            z-index: 20;
         }
 
-        .controls {
-            margin-top: 1.5rem;
+        /* Controls */
+        .toolbar {
             display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 1rem;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        .btn-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            text-align: left;
+        }
+
+        label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #94a3b8;
         }
 
         select, button {
             padding: 12px;
             border-radius: 12px;
             border: none;
-            background: #334155;
-            color: white;
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
+            transition: all 0.2s;
         }
 
-        .btn-capture { background: var(--primary); grid-column: span 2; font-size: 1.1rem; }
-        .btn-share { background: #10b981; }
-        
+        select {
+            background: #334155;
+            color: white;
+            outline: none;
+        }
+
+        button {
+            background: var(--primary);
+            color: white;
+        }
+
+        button:hover { transform: translateY(-2px); filter: brightness(1.1); }
+        button:active { transform: translateY(0); }
+        button:disabled { background: #475569; cursor: not-allowed; }
+
+        .btn-capture { background: var(--secondary); font-size: 1.1rem; }
+        .btn-download { background: #10b981; }
+        .btn-retake { background: #64748b; }
+
         .hidden { display: none !important; }
+
+        @keyframes flashAnim {
+            0% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        .flash-active { animation: flashAnim 0.5s ease-out; }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <h2 style="text-align: center; margin-top: 0;">🎞️ Strip Studio</h2>
+    <div class="app-container">
+        <header style="margin-bottom: 1.5rem;">
+            <h1 style="margin:0; font-weight: 800; background: linear-gradient(to right, #818cf8, #f472b6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PRO STUDIO</h1>
+            <p style="color: #94a3b8; margin: 5px 0 0 0;">Professional Web Photobooth</p>
+        </header>
 
-        <div class="viewport-container">
-            <div id="timer" class="hidden">3</div>
+        <div class="viewer-pane">
+            <div id="timer">3</div>
+            <div id="flash"></div>
             <video id="video" autoplay playsinline></video>
             <canvas id="canvas" class="hidden"></canvas>
         </div>
 
-        <div id="ui-setup" class="controls">
-            <div class="btn-grid">
-                <select id="mode">
-                    <option value="1">Single Photo</option>
-                    <option value="3">3-Photo Strip</option>
-                    <option value="4">4-Photo Grid</option>
-                </select>
-                <select id="filter">
-                    <option value="none">Normal</option>
-                    <option value="grayscale(100%)">Noir (B&W)</option>
-                    <option value="sepia(100%)">Retro Sepia</option>
-                    <option value="saturate(200%) brightness(1.1)">Vibrant</option>
-                    <option value="hue-rotate(90deg)">Acid Trip</option>
-                    <option value="contrast(150%) brightness(0.8)">Dramatic</option>
-                    <option value="blur(2px) saturate(1.5)">Soft Dream</option>
-                    <option value="invert(1)">Negative</option>
+        <div class="toolbar">
+            <div class="control-group">
+                <label>Layout Mode</label>
+                <select id="photoMode">
+                    <option value="1">Single Portrait</option>
+                    <option value="3">Classic 3-Strip</option>
+                    <option value="4">Quad Grid</option>
                 </select>
             </div>
-            <button id="btn-snap" class="btn-capture">Start Capture</button>
+
+            <div class="control-group">
+                <label>Artistic Filter</label>
+                <select id="filter">
+                    <option value="none">Natural</option>
+                    <option value="grayscale(100%)">Noir (B&W)</option>
+                    <option value="sepia(60%)">Vintage Sepia</option>
+                    <option value="contrast(1.2) brightness(1.1) saturate(1.1)">Studio Bright</option>
+                    <option value="contrast(1.1) sepia(20%) hue-rotate(-10deg)">Warm Film</option>
+                    <option value="invert(100%)">X-Ray</option>
+                </select>
+            </div>
+
+            <div class="control-group" style="justify-content: flex-end;">
+                <button id="capture" class="btn-capture">📸 Take Photo</button>
+            </div>
+            
+            <div class="control-group" style="justify-content: flex-end;">
+                <button id="flip" style="background:#475569">🔄 Flip</button>
+            </div>
         </div>
 
-        <div id="ui-post" class="controls hidden">
-            <button id="btn-share" class="btn-share">📤 Share to Email / Photos</button>
-            <div class="btn-grid">
-                <button onclick="location.reload()">🔄 Retake</button>
-                <button id="btn-download" style="background:#6366f1">💾 Download</button>
-            </div>
+        <div id="postCapture" class="toolbar hidden">
+            <button id="download" class="btn-download">💾 Download Strip</button>
+            <button id="retake" class="btn-retake">🔄 New Session</button>
         </div>
     </div>
 
@@ -138,106 +196,133 @@
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
         const timerEl = document.getElementById('timer');
-        const snapBtn = document.getElementById('btn-snap');
+        const flashEl = document.getElementById('flash');
         
+        // Buttons
+        const captureBtn = document.getElementById('capture');
+        const downloadBtn = document.getElementById('download');
+        const retakeBtn = document.getElementById('retake');
+        const flipBtn = document.getElementById('flip');
+        const postCaptureActions = document.getElementById('postCapture');
+
         let stream;
         let images = [];
+        let currentFacingMode = 'user';
 
-        async function init() {
-            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-            video.srcObject = stream;
+        async function initCamera() {
+            if (stream) stream.getTracks().forEach(t => t.stop());
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: currentFacingMode, width: 720, height: 960 } 
+                });
+                video.srcObject = stream;
+            } catch (err) {
+                alert("Camera access denied. Please enable permissions.");
+            }
         }
 
-        snapBtn.onclick = async () => {
-            const count = parseInt(document.getElementById('mode').value);
+        function triggerFlash() {
+            flashEl.classList.remove('flash-active');
+            void flashEl.offsetWidth; // Trigger reflow
+            flashEl.classList.add('flash-active');
+        }
+
+        async function takePhoto() {
+            const count = parseInt(document.getElementById('photoMode').value);
             images = [];
-            snapBtn.disabled = true;
+            captureBtn.disabled = true;
 
             for (let i = 0; i < count; i++) {
-                // Timer
-                timerEl.classList.remove('hidden');
-                for (let t = 3; t > 0; t--) {
-                    timerEl.innerText = t;
+                // Countdown
+                timerEl.style.display = 'block';
+                for (let j = 3; j > 0; j--) {
+                    timerEl.innerText = j;
                     await new Promise(r => setTimeout(r, 800));
                 }
-                timerEl.classList.add('hidden');
+                timerEl.style.display = 'none';
 
-                // Capture to temporary invisible canvas
-                const temp = document.createElement('canvas');
-                temp.width = video.videoWidth;
-                temp.height = video.videoHeight;
-                const tCtx = temp.getContext('2d');
+                // Flash & Capture
+                triggerFlash();
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = video.videoWidth;
+                tempCanvas.height = video.videoHeight;
+                const tCtx = tempCanvas.getContext('2d');
                 
-                // MIRROR THE ACTUAL DATA
-                tCtx.translate(temp.width, 0);
-                tCtx.scale(-1, 1);
+                // Mirror for front camera
+                if(currentFacingMode === 'user') {
+                    tCtx.translate(tempCanvas.width, 0);
+                    tCtx.scale(-1, 1);
+                }
                 
                 tCtx.filter = document.getElementById('filter').value;
-                tCtx.drawImage(video, 0, 0, temp.width, temp.height);
-                images.push(temp.toDataURL('image/png'));
+                tCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+                images.push(tempCanvas.toDataURL('image/png'));
                 
                 if (i < count - 1) await new Promise(r => setTimeout(r, 1000));
             }
+
             renderStrip();
-        };
+        }
 
         function renderStrip() {
-            const w = 600; // High res base width
-            const h = 800; // Base height per photo
-            const pad = 40;
+            const padding = 40;
+            const photoW = 480;
+            const photoH = 640;
             
-            canvas.width = w + (pad * 2);
-            canvas.height = (h * images.length) + (pad * (images.length + 1)) + 80;
+            canvas.width = photoW + (padding * 2);
+            canvas.height = (photoH * images.length) + (padding * (images.length + 1)) + 60;
 
-            // Background
+            // White background for strip
             ctx.fillStyle = "white";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            images.forEach((imgSrc, i) => {
+            images.forEach((src, i) => {
                 const img = new Image();
                 img.onload = () => {
-                    ctx.drawImage(img, pad, pad + (i * (h + pad)), w, h);
-                    if (i === images.length - 1) finalize();
+                    ctx.drawImage(img, padding, padding + (i * (photoH + padding)), photoW, photoH);
+                    
+                    if (i === images.length - 1) {
+                        // Branding
+                        ctx.fillStyle = "#cbd5e1";
+                        ctx.font = "bold 20px Inter";
+                        ctx.textAlign = "center";
+                        ctx.fillText("PRO STUDIO SESSION", canvas.width/2, canvas.height - 30);
+                        
+                        video.classList.add('hidden');
+                        canvas.classList.remove('hidden');
+                        postCaptureActions.classList.remove('hidden');
+                    }
                 };
-                img.src = imgSrc;
+                img.src = src;
             });
         }
 
-        function finalize() {
-            // Remove the CSS mirroring from canvas so the already-mirrored data displays correctly
-            canvas.style.transform = "none";
-            
-            ctx.fillStyle = "#aaa";
-            ctx.font = "bold 24px Arial";
-            ctx.textAlign = "center";
-            ctx.fillText("PRO STUDIO STRIP • 2024", canvas.width/2, canvas.height - 35);
+        captureBtn.addEventListener('click', takePhoto);
+        
+        retakeBtn.addEventListener('click', () => {
+            video.classList.remove('hidden');
+            canvas.classList.add('hidden');
+            postCaptureActions.classList.add('hidden');
+            captureBtn.disabled = false;
+        });
 
-            video.classList.add('hidden');
-            canvas.classList.remove('hidden');
-            document.getElementById('ui-setup').classList.add('hidden');
-            document.getElementById('ui-post').classList.remove('hidden');
-        }
+        flipBtn.addEventListener('click', () => {
+            currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+            initCamera();
+        });
 
-        // Sharing logic
-        document.getElementById('btn-share').onclick = async () => {
-            const blob = await (await fetch(canvas.toDataURL())).blob();
-            const file = new File([blob], 'strip.png', { type: 'image/png' });
-
-            if (navigator.share) {
-                navigator.share({ files: [file], title: 'My Photo Strip' });
-            } else {
-                window.location.href = `mailto:?subject=My Photo Strip&body=See attached!`;
-            }
-        };
-
-        document.getElementById('btn-download').onclick = () => {
+        downloadBtn.addEventListener('click', () => {
             const link = document.createElement('a');
-            link.download = 'photostrip.png';
+            link.download = `pro-studio-${Date.now()}.png`;
             link.href = canvas.toDataURL();
             link.click();
-        };
+        });
 
-        init();
+        document.getElementById('filter').addEventListener('change', (e) => {
+            video.style.filter = e.target.value;
+        });
+
+        initCamera();
     </script>
 </body>
 </html>
